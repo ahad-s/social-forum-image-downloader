@@ -11,14 +11,14 @@ import base64
 from PIL import ImageTk, Image
 
 """
-TODO:
-INCLUDE COPY FROM CLIPBOARD UPON FOCUS IN WINDOW
+~ INCLUDE COPY FROM CLIPBOARD UPON FOCUS IN WINDOW
 """
 
 class ChanDownload():
 
 	def __init__(self, dl_dir):
 		self.dl_dir = dl_dir
+		self.to_open = dl_dir
 		self.bg_colour = "white"
 		self.current_thumbnail = ""
 
@@ -185,7 +185,6 @@ class ChanDownload():
 		downT.start()
 
 
-
 	def show_thumbnail(self, thumbnailurl):
 		a = urllib2.urlopen(thumbnailurl).read()
 		encoded = base64.b64encode(a)
@@ -199,6 +198,10 @@ class ChanDownload():
 
 		self.download_status.set("Beginning download...")
 		
+		self.make_dir()
+
+		self.to_open = self.dl_dir + url[2] + "\\" + url[1] + "\\"
+		
 		imgurl_list = self.get_images()
 
 		url = self.get_url()
@@ -207,12 +210,15 @@ class ChanDownload():
 
 		folder_name = self.get_foldername()
 
-		self.make_dir()
+
+
+		print "opening...", self.to_open
+
 
 		#goes through every photo in list and downloads it
 		for imgurl, thumbnailurl in zip(imgurl_list, thumbnail_urls):
 			try:
-				# self.show_thumbnail("http://{0}".format(thumbnailurl)) ## DISABLED TEMPORARILY WHILE FIXING IMAGE DISPLAY
+				# self.show_thumbnail("http://{0}".format(thumbnailurl))
 
 				imgurl_name=(imgurl.split("/"))[4] #Isolates image file name
 
@@ -244,8 +250,7 @@ class ChanDownload():
 		print "Downloading finished!"
 
 	def open_dl_folder(self):
-		print self.dl_dir+"\\"+self.thread_url.split("/")[-4]+"\\"+self.get_foldername()
-		os.system("explorer "+self.dl_dir+self.thread_url.split("/")[-4]+"\\"+self.get_foldername())
+		os.system("explorer "+self.to_open)
 
 
 if __name__=="__main__":
