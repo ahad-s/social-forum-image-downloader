@@ -22,6 +22,7 @@ class ChanDownload():
 		self.bg_colour = "white"
 		self.current_thumbnail = ""
 
+	# assigns GUI to be used throughout program
 	def newtkinter(self):
 
 		self.main_win=Tkinter.Tk()
@@ -101,6 +102,8 @@ class ChanDownload():
 		print "Hovered at {}".format(time.localtime()[3:6]) # selects hour/minute/second
 
 
+
+	# retrieves the image URLs in a list to be parsed later and used
 	def get_thumbnails(self):
 		soup = self.get_soup()
 
@@ -116,9 +119,11 @@ class ChanDownload():
 
 
 
+	# clears GUI for text
 	def clear_entry(self):
 		self.url_entry.delete(0, Tkinter.END)
 
+	# parses raw URL that the user enters and returns as a list
 	def get_url(self):
 		self.thread_url=self.url_entry.get()
 
@@ -170,6 +175,7 @@ class ChanDownload():
 	# put foldername_entry as param in make_dir 
 	# default foldername_entry to str(url[1])
 
+	# makes a directory of the name specified, otherwise folder is thread ID
 	def make_dir(self):
 		# make directory if it doesnt exist
 		url = self.get_url()
@@ -180,6 +186,7 @@ class ChanDownload():
 			os.makedirs(self.dl_dir+str(url[2])+"/"+folder_name)
 
 
+	# starts new thread so UI doesn't freeze as the user presses download
 	def download_thread_start(self):
 		downT = threading.Thread(target = self.download)
 		downT.start()
@@ -194,6 +201,7 @@ class ChanDownload():
 		self.image_thumbnail = Tkinter.Label(self.bot_frame, image = thumbnail)
 		self.image_thumbnail.pack(side="left")
 
+	# retrieves parsed thread URL and list of image URLs and downloads/saves it to computer
 	def download(self):
 
 		self.download_status.set("Beginning download...")
@@ -254,5 +262,5 @@ class ChanDownload():
 
 
 if __name__=="__main__":
-	download_dir = "c:\\4chan\\downloads\\"
+	download_dir = "c:\\4chan\\downloads\\" # this can be changed, TODO: allow user to set this manually/change default
 	chd=ChanDownload(download_dir).newtkinter()
