@@ -10,23 +10,32 @@ import itertools
 import base64
 from PIL import ImageTk, Image
 
+import cPickle
+import requests
+import requests.auth
+import json
+
+from kmeans import Comment, KMeansText
+
+
 """
 ~ INCLUDE COPY FROM CLIPBOARD UPON FOCUS IN WINDOW
 """
 
-class ChanDownload():
+class ChanDownload(object):
 
-	def __init__(self, dl_dir):
+	def __init__(self, dl_dir, reddit_crawler = None):
 		self.dl_dir = dl_dir
 		self.to_open = dl_dir
 		self.bg_colour = "white"
 		self.current_thumbnail = ""
+		self.reddit_crawler = reddit_crawler
 
 	# assigns GUI to be used throughout program
 	def newtkinter(self):
 
 		self.main_win=Tkinter.Tk()
-		self.main_win.title("4chan Image Downloader")
+		self.main_win.title("Reddit/Chan Image Downloader")
 		self.main_win.resizable(width=0, height=0)
 		self.main_win.configure(bg=self.bg_colour)
 		# self.main_win.iconbitmap("image_downloader_icon.ico") ######## FIND A GOOD ICON FOR PROGRAM
@@ -37,10 +46,10 @@ class ChanDownload():
 		self.bot_frame = Tkinter.Frame()
 
 
-		self.prompt_label = Tkinter.Label(self.top_frame, text="Enter 4chan url: ", 
+		self.prompt_label = Tkinter.Label(self.top_frame, text="Enter (Reddit/4chan) url: ", 
 										relief = "raised", bg = self.bg_colour)
 
-		url_entry_width = 150 - self.prompt_label.winfo_reqwidth()
+		url_entry_width = 197 - self.prompt_label.winfo_reqwidth()
 		self.url_entry = Tkinter.Entry(self.top_frame, width=url_entry_width)
 
 		self.foldername_label = Tkinter.Label(self.mid_frame, text="Enter folder name:", # set it so that if you hover it makes a box saying "empty = (default dir)", draw a canvas
@@ -73,7 +82,9 @@ class ChanDownload():
 
 		self.download_button = Tkinter.Button(self.bot_frame, text="Begin Download", command=self.download_thread_start)
 
-		self.folder_button = Tkinter.Button(self.bot_frame, text="Open Folder", command=self.open_dl_folder)
+		self.folder_button = Tkinter.Button(self.bot_frame, text="Open Download Folder", command=self.open_dl_folder)
+
+		self.reddit_random_button = Tkinter.Button(self.bot_frame, text="Download randomly with MACHINE LEARNING!", command=self.open_dl_folder)
 
 
 
@@ -81,14 +92,18 @@ class ChanDownload():
 		#THIS WORKS, JUST HAVE TO UPDATE IMAGES WITH self.image_thumbnail.config in the method
 
 
-		self.download_button.config(width=30,height=2, bg = "yellow")
+		self.download_button.config(width=40,height=2, bg = "yellow")
 		self.download_button.pack(side="top")
 
-		self.clear_button.config(width=30,height=2, bg = "cyan")
+		self.clear_button.config(width=40,height=2, bg = "cyan")
 		self.clear_button.pack()
 
-		self.folder_button.config(width=30, height=2, bg = "yellow")
+		self.reddit_random_button.config(width=40, height=2, bg = "cyan")
+		self.reddit_random_button.pack(side="bottom")
+
+		self.folder_button.config(width=40, height=2, bg = "yellow")
 		self.folder_button.pack(side="bottom")
+
 
 		self.top_frame.pack(fill="x")
 		self.mid_frame.pack(fill="x")
@@ -99,7 +114,8 @@ class ChanDownload():
 
 	# TEST FEATURE FOR NOW, USE FOR SOMETHING ELSE LATER
 	def folder_hover_callback(self, on = False):
-		print "Hovered at {}".format(time.localtime()[3:6]) # selects hour/minute/second
+		# print "Hovered at {}".format(time.localtime()[3:6]) # selects hour/minute/second
+		pass
 
 
 
@@ -146,8 +162,8 @@ class ChanDownload():
 
 	def get_soup(self):
 		url = self.get_url()
-		html = urllib2.urlopen(url[0])
-		soup = BeautifulSoup(html)
+		html = urllib2.urlopen(url[0]).read()
+		soup = BeautifulSoup(html, "lxml")
 
 		return soup
 
@@ -208,16 +224,19 @@ class ChanDownload():
 		
 		self.make_dir()
 
-		self.to_open = self.dl_dir + url[2] + "\\" + url[1] + "\\"
-		
 		imgurl_list = self.get_images()
 
 		url = self.get_url()
+
+		self.to_open = self.dl_dir + url[2] + "\\" + url[1] + "\\"
 
 		thumbnail_urls = self.get_thumbnails()
 
 		folder_name = self.get_foldername()
 
+		if "reddit.com/r/" in url:
+			# print links from k-means
+			return 
 
 
 		print "opening...", self.to_open
@@ -251,16 +270,173 @@ class ChanDownload():
 				pass
 				# print "URL Error: " + e.code
 
-		finished=True # exclude this later on
-
-		if finished:
-			self.download_status.set("Finished!")
+		self.download_status.set("Finished!")
 		print "Downloading finished!"
 
 	def open_dl_folder(self):
 		os.system("explorer "+self.to_open)
 
 
+
+
+class Reddit():
+	def __init__(self):
+		pass
+
+	def get_archived_data(self):
+		url = "http://www.redditarchive.com/?d="
+		# urlformat = "www.redditarchive.com/?d=MONTH+DATE,+FULL_YEAR 
+		months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+		dates = [str(i) for i in range(1, 32)]
+		years = ['2016', '2015', '2014', '2013', '2012']
+
+		months = ['may']
+
+		archive_reddit_links = []
+
+		num_days = 0
+
+		for y in years:
+			for m in months:
+				for d in dates:
+					print "archiving", m, d, y + "..."
+					try:
+						archive_page_html = urllib2.urlopen(url+m+"+"+d+",+"+y).read()
+						archive_reddit_links.extend(self.get_all_reddit_links(archive_page_html))
+						num_days += 1
+
+						print "archieved day successfully with [%d] links..." % len(archive_reddit_links)
+					except Exception as e:
+						# print e.strerror
+						print "archive day failed"
+						# most likely too many requests
+						x = open("last_archieve.txt", "wb")
+						x.write(y + "--" + m + "--" + d)
+						x.close()
+						self.pickle_archived_data(archive_reddit_links, (m,d,y))
+						return
+
+		self.pickle_archived_data(archive_reddit_links, (m,d,y))
+
+		# stores urldata, not the html file (i.e. it stores l = urllib2.urlopen(url))
+
+	def pickle_archived_data(self, data_list, date):
+		w = open('archived_reddit_urls/urls_' + date[0] + "_" + date[1] + "_" + date[2] + '_.txt', "wb")
+
+		for l in data_list:
+			# print "writing...", l
+			l = l.encode("ascii", "ignore")
+			w.write(l + "\n")
+
+		w.close()
+
+
+	def retrieve_archived_pickled_urls(self, date):
+		r = open('archived_reddit_urls/urls_' + date[0] + "_" + date[1] + "_" + date[2] + '_.txt', "rb")
+		lines = r.readlines()
+
+		links_list = [l for l in lines]
+
+		r.close()
+
+		return links_list
+
+	# returns list of all reddit links on page
+	def get_all_reddit_links(self, html):
+		links = []
+		soup = BeautifulSoup(html, "lxml")
+		for s in soup.find_all("a", target="_new"):
+			url = s['href']
+			if "reddit.com/r/" in url:
+				links.append(url)
+		return list(set(links)) # trivial way of uniqifying links
+
+
+	def get_access_token(self, url = "http://www.reddit.com/" ):
+
+		# retrieve from reddit dev page
+		client_id = ""
+		secret = ""
+		user_agent = ""
+		user = ""
+		pw = ""
+
+		client_auth = requests.auth.HTTPBasicAuth(client_id, secret)
+		post_data = {"grant_type": "password", 
+					"username": user, 
+					"password": pw}
+		header = {"User-Agent": user_agent}
+
+		j = requests.post(url + "api/v1/access_token", 
+							auth = client_auth, data = post_data, headers = header).json()
+		# gives {access_token: token, expires_in:time, scope:?, token_type:('bearer')}
+
+		print j
+
+		access_token = j['access_token']
+		token_type = j['token_type']
+		expires_in = j['expires_in']
+
+		return (access_token, token_type, user_agent)
+
+	def get_comments(self, url, token, token_type, user_agent):
+
+		comment_list = [] # list of Comment objects
+
+		header = {"Authorization": token_type + " " + access_token, 
+				"User-Agent": user_agent}
+		resp = requests.get("https://oauth.reddit.com/api/v1/me", headers=header)
+
+		# print "------------"
+
+		resp = requests.get(temp, headers=header)
+		l = resp.json()
+		d = l[1]
+		for k, v in d.items():
+			if k == 'body':
+				comment_list.append(Comment(v)) 
+
+		# x = open("commentsjson.txt", "wb+")
+		# x.write(str(l))
+		# x.close()
+
+		return comment_list
+
+	def run_crawler(self):
+		links = self.retrieve_archived_pickled_urls()
+		tokens = self.get_access_token()
+
+		master_comment_list = []
+
+		for link in links:
+			time.sleep(1) # in place to avoid making too many api calls
+			print "retrieving comments for [%s]" % link
+			comments = get_comments(link, tokens)
+			master_comment_list.extend(comments)
+
+		# uncomment this line to save comments to file as a list
+		# self.pickle_dump_comments(master_comment_list)
+
+		return master_comment_list # list of comments, i.e. list of strings	
+
+
+	def pickle_dump_comments(self, comments):
+		cPickle.dump(comments, open('comments_dump.p', 'wb+'))
+
+	def pickle_retrieve_comments(self):
+		master_comment_list = cPickle.load(open('comments_dump.p', 'rb+'))
+		return master_comment_list # strings
+
+
+
 if __name__=="__main__":
-	download_dir = "c:\\4chan\\downloads\\" # this can be changed, TODO: allow user to set this manually/change default
-	chd=ChanDownload(download_dir).newtkinter()
+	# download_dir = "" # this can be changed, TODO: allow user to set this manually/change default
+	# chd=ChanDownload(download_dir).newtkinter()
+
+	test_url = 'https://oauth.reddit.com/r/redditdev/comments/2ysj31/how_do_i_request_the_frontpage_from_the_reddit_api/'
+
+	reddit = Reddit()
+	# reddit.get_fresh_comments()
+	# reddit.get_archived_data()
+	tokens = reddit.get_access_token()
+	all_comments = reddit.run_crawler()
