@@ -46,6 +46,7 @@ class Comment(object):
 
 	def calculate_term_freq(self, comment, word_list, total, total_words):
 		global word_freq_global
+		global num_comments
 
 		tf = {}
 
@@ -70,7 +71,7 @@ class Comment(object):
 
 
 	def calculate_inv_doc_freq(self, comment, word_list):
-		return {word: math.log(self.num_comments / word_freq_global[word] for word in word_list}
+		return {word: math.log(num_comments / word_freq_global[word] for word in word_list}
 
 
 
@@ -93,6 +94,7 @@ class KMeansText(object):
 	"""
 
 	def kmeans(self, data, num_clusters):
+
 		centroids = self.random_init(data, num_clusters)
 
 		# TODO: VECTORIZED APPROACH INSTEAD OF ITER
@@ -126,7 +128,10 @@ class KMeansText(object):
 		# J = 1/m * norm_2(x_i - mean_(c_i))
 		pass
 
-	def perform_kmeans(self, iterations = 50):
+	def perform_kmeans(self, my_x = None, iterations = 50):
+
+		# after clustering is complete, check which cluster my_x belongs to 
+		# and print out random values in the cluster
 
 		curr_lowest_cost = None
 
